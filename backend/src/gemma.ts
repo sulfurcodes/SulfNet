@@ -2,7 +2,7 @@ import { GoogleGenAI } from "@google/genai";
 import type { CheckReport } from "./checks/index.js";
 import type { Verdict } from "./diagnose.js";
 
-const TIMEOUT_MS = 15000;
+const TIMEOUT_MS = 5000;
 
 type StageLike = {
   ok: boolean;
