@@ -10,8 +10,18 @@ export interface BaseResult {
   error?: CheckError;
 }
 
+export interface ResolverAnswer {
+  name: string;
+  server: string;
+  ok: boolean;
+  ms: number;
+  addresses?: string[];
+  error?: CheckError;
+}
+
 export interface DnsResult extends BaseResult {
   addresses?: string[];
+  resolvers?: ResolverAnswer[];
 }
 
 export interface TlsResult extends BaseResult {

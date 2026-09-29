@@ -1,4 +1,4 @@
-import type { BaseResult, CheckReport } from "./checks/index.js";
+import type { BaseResult, CheckReport, ResolverAnswer } from "./checks/index.js";
 
 export type Stage = "dns" | "tcp" | "tls" | "http";
 export type Severity = "ok" | "warn" | "fail";
@@ -50,6 +50,35 @@ function addresses(report: CheckReport): string[] {
   return Array.isArray(list) ? list : [];
 }
 
+function resolverAddresses(report: CheckReport): string[] {
+  return (report.dns?.resolvers ?? []).flatMap((r) => (r.ok ? (r.addresses ?? []) : []));
+}
+
+function resolverNames(report: CheckReport): string[] {
+  return (report.dns?.resolvers ?? []).filter((r) => r.ok && r.addresses?.length).map((r) => r.name);
+}
+
+// A resolver "answered" if it replied at all, even with "no such domain".
+function answered(r: ResolverAnswer): boolean {
+  return r.ok || r.error?.code === "ENOTFOUND" || r.error?.code === "ENODATA";
+}
+
+function isNonRoutable(ip: string): boolean {
+  return ip === "0.0.0.0" || ip === "::" || ip === "::1" || ip.startsWith("127.");
+}
+
+// Returns the placeholder address if the local DNS answered with one while public DNS gives a real address.
+function sinkholeAddress(local: CheckReport, control: CheckReport): string | null {
+  const la = addresses(local);
+  if (!la.length || !la.every(isNonRoutable)) return null;
+
+  const fromResolvers = [...resolverAddresses(local), ...resolverAddresses(control)];
+  const reference = fromResolvers.length ? fromResolvers : addresses(control);
+  if (!reference.length || reference.some(isNonRoutable)) return null;
+
+  return la[0];
+}
+
 function localOnlySummary(f: StageFailure): string {
   switch (f.stage) {
     case "dns":
@@ -78,13 +107,27 @@ export function diagnose(local: CheckReport, control: CheckReport): Verdict {
 
   const lf = findFailure(local);
   const cf = findFailure(control);
+  const sinkhole = lf ? sinkholeAddress(local, control) : null;
   const notes: string[] = [];
 
   const la = addresses(local);
   const ca = addresses(control);
+  const ra = resolverAddresses(local);
+
   if (lf && la.length && ca.length && !la.some((a) => ca.includes(a))) {
     notes.push(
       "DNS returned different addresses on your network than on the control server. This can be normal CDN routing, but it can also mean DNS tampering."
+    );
+  }
+  if (lf && !sinkhole && la.length && ra.length && !la.some((a) => ra.includes(a))) {
+    notes.push(
+      "Your system's DNS returned different addresses than public DNS servers (Cloudflare, Google). This can be normal CDN routing, but together with this failure it may mean your DNS is being tampered with."
+    );
+  }
+  const localResolvers = local.dns?.resolvers ?? [];
+  if (lf?.stage === "dns" && localResolvers.length && localResolvers.every((r) => !answered(r))) {
+    notes.push(
+      "Your network may be blocking direct queries to public DNS servers, so that comparison wasn't possible."
     );
   }
 
@@ -100,7 +143,26 @@ export function diagnose(local: CheckReport, control: CheckReport): Verdict {
     };
   }
 
+  if (lf && sinkhole) {
+    return {
+      ...base,
+      code: "LOCAL_DNS_SINKHOLE",
+      severity: "fail",
+      title: "Your DNS is sending you to a dead end",
+      summary: `Your network's DNS answered with a placeholder address (${sinkhole}) instead of the site's real one, while public DNS servers return a real address. That's a common way for a router, ISP, content filter or hosts file to block a site. Try a different DNS server, and check your hosts file.`,
+    };
+  }
+
   if (lf && !cf) {
+    if (lf.stage === "dns" && resolverNames(local).length > 0) {
+      return {
+        ...base,
+        code: "LOCAL_DNS_RESOLVER_FAIL",
+        severity: "fail",
+        title: "Your DNS server is the problem",
+        summary: `Your network's DNS server can't resolve this domain, but ${resolverNames(local).join(" and ")} can, and so can the control server. Your ISP's or router's DNS is failing or blocking this domain. Switching your DNS server, for example to 1.1.1.1 or 8.8.8.8, should fix it.`,
+      };
+    }
     return {
       ...base,
       code: `LOCAL_${lf.stage.toUpperCase()}_FAIL`,

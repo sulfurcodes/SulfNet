@@ -1,26 +1,31 @@
-import { checkDns } from './dns.js';
-import { checkTcp } from './tcp.js';
-import { checkTls } from './tls.js';
-import { checkHttp } from './http.js';
-import type { BaseResult, CheckReport } from './types.js';
+import { checkDns, checkResolvers } from "./dns.js";
+import { checkTcp } from "./tcp.js";
+import { checkTls } from "./tls.js";
+import { checkHttp } from "./http.js";
+import type { BaseResult, CheckReport } from "./types.js";
 
-export type * from './types.js';
+export type * from "./types.js";
 
 const skipped: BaseResult = { ok: false, skipped: true };
 
 export async function runChecks(rawUrl: string): Promise<CheckReport> {
   let url: URL;
   try {
-    url = new URL(rawUrl.includes('://') ? rawUrl : `https://${rawUrl}`);
+    url = new URL(rawUrl.includes("://") ? rawUrl : `https://${rawUrl}`);
   } catch {
     return { input: rawUrl, invalid: true };
   }
 
-  const isHttps = url.protocol === 'https:';
+  const isHttps = url.protocol === "https:";
   const port = Number(url.port) || (isHttps ? 443 : 80);
   const report: CheckReport = { input: rawUrl, url: url.href, hostname: url.hostname, port };
 
-  report.dns = await checkDns(url.hostname);
+  const [systemDns, resolvers] = await Promise.all([
+    checkDns(url.hostname),
+    checkResolvers(url.hostname),
+  ]);
+  report.dns = { ...systemDns, resolvers };
+
   if (!report.dns.ok || !report.dns.addresses?.length) {
     return { ...report, tcp: skipped, tls: skipped, http: skipped };
   }

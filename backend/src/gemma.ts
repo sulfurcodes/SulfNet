@@ -26,6 +26,11 @@ function pick(r?: StageLike) {
 function compact(report: CheckReport) {
   return {
     dns: pick(report.dns),
+    publicResolvers: (report.dns?.resolvers ?? []).map((r) => ({
+      name: r.name,
+      ok: r.ok,
+      error: r.error?.code ? String(r.error.code).slice(0, 40) : undefined,
+    })),
     tcp: pick(report.tcp),
     tls: pick(report.tls),
     http: pick(report.http),
