@@ -2,12 +2,22 @@ export type Stage = "dns" | "tcp" | "tls" | "http";
 export type Severity = "ok" | "warn" | "fail";
 export type Phase = "idle" | "loading" | "done" | "error";
 
+export interface ResolverAnswer {
+  name: string;
+  server: string;
+  ok: boolean;
+  ms: number;
+  addresses?: string[];
+  error?: { code?: string; message: string };
+}
+
 export interface StageResult {
   ok: boolean;
   ms?: number;
   skipped?: boolean;
   error?: { code?: string; message: string };
   addresses?: string[];
+  resolvers?: ResolverAnswer[];
   protocol?: string | null;
   validTo?: string;
   issuer?: string;

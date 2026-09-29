@@ -1,4 +1,6 @@
+import Pipeline from "../components/Pipeline";
 import ResultsTable from "../components/ResultsTable";
+import ResolverTable from "../components/ResolverTable";
 import type { DiagnoseResponse } from "../types";
 
 interface DiagnosisProps {
@@ -8,6 +10,8 @@ interface DiagnosisProps {
 
 export default function Diagnosis({ result, onBack }: DiagnosisProps) {
   const { verdict, local, control, explanation, explanationSource } = result;
+  const hasResolvers =
+    (local.dns?.resolvers?.length ?? 0) > 0 || (control.dns?.resolvers?.length ?? 0) > 0;
 
   return (
     <section className="stack">
@@ -38,10 +42,26 @@ export default function Diagnosis({ result, onBack }: DiagnosisProps) {
       </div>
 
       <div>
+        <h3 className="section-title mono">Where it breaks</h3>
+        <Pipeline local={local} control={control} />
+      </div>
+
+      <div>
         <h3 className="section-title mono">Your network vs control server</h3>
         <ResultsTable local={local} control={control} />
         <p className="legend">Yellow rows are where your network and the control server disagree.</p>
       </div>
+
+      {hasResolvers && (
+        <div>
+          <h3 className="section-title mono">DNS from different resolvers</h3>
+          <ResolverTable local={local} control={control} />
+          <p className="legend">
+            Public DNS servers ignore your router's DNS and your hosts file. If they answer where
+            System DNS fails, your DNS is the problem.
+          </p>
+        </div>
+      )}
 
       <div className="actions">
         <button className="btn" type="button" onClick={onBack}>
