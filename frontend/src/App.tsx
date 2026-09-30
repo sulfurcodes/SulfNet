@@ -1,12 +1,16 @@
 import { useState } from "react";
 import Home from "./pages/Home";
 import Diagnosis from "./pages/Diagnosis";
+import ThemeToggle from "./components/ThemeToggle";
+import ClickSpark from "./react-bits/ClickSpark";
+import { useTheme } from "./theme";
 import { runDiagnostic } from "./api";
 import type { DiagnoseResponse, Phase } from "./types";
 
 type Screen = "home" | "diagnosis";
 
 export default function App() {
+  const { theme, toggle } = useTheme();
   const [screen, setScreen] = useState<Screen>("home");
   const [phase, setPhase] = useState<Phase>("idle");
   const [result, setResult] = useState<DiagnoseResponse | null>(null);
@@ -34,22 +38,27 @@ export default function App() {
   }
 
   return (
-    <div className="app">
-      <header className="header">
-        <div className="logo">SulfNet</div>
-        <div className="tagline mono">Why can't I reach it?</div>
-      </header>
+    <ClickSpark sparkColor={theme === "dark" ? "#FFD400" : "#000000"} sparkSize={10}>
+      <div className="app">
+        <header className="header">
+          <div className="logo">SulfNet</div>
+          <div className="header__right">
+            <div className="tagline mono">Why can't I reach it?</div>
+            <ThemeToggle theme={theme} onToggle={toggle} />
+          </div>
+        </header>
 
-      {screen === "home" && (
-        <Home
-          phase={phase}
-          error={error}
-          onRun={handleRun}
-          onViewDiagnosis={() => setScreen("diagnosis")}
-        />
-      )}
+        {screen === "home" && (
+          <Home
+            phase={phase}
+            error={error}
+            onRun={handleRun}
+            onViewDiagnosis={() => setScreen("diagnosis")}
+          />
+        )}
 
-      {screen === "diagnosis" && result && <Diagnosis result={result} onBack={handleBack} />}
-    </div>
+        {screen === "diagnosis" && result && <Diagnosis result={result} onBack={handleBack} />}
+      </div>
+    </ClickSpark>
   );
 }

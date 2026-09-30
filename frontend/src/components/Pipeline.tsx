@@ -1,4 +1,6 @@
-import { Fragment } from "react";
+import { Fragment, useEffect, useRef } from "react";
+import gsap from "gsap";
+import { prefersReducedMotion } from "../motion";
 import type { CheckReport, Stage, StageResult } from "../types";
 
 const STAGES: { key: Stage; label: string }[] = [
@@ -49,8 +51,37 @@ function Row({ title, report }: { title: string; report: CheckReport }) {
 }
 
 export default function Pipeline({ local, control }: { local: CheckReport; control: CheckReport }) {
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root || prefersReducedMotion()) return;
+
+    const ctx = gsap.context(() => {
+      gsap.from(".pipe-node", {
+        scale: 0.6,
+        autoAlpha: 0,
+        duration: 0.35,
+        stagger: 0.07,
+        delay: 0.7,
+        ease: "back.out(2)",
+        clearProps: "transform,opacity,visibility",
+      });
+      gsap.from(".pipe-break", {
+        y: -16,
+        autoAlpha: 0,
+        duration: 0.4,
+        delay: 1.4,
+        ease: "bounce.out",
+        clearProps: "transform,opacity,visibility",
+      });
+    }, root);
+
+    return () => ctx.revert();
+  }, []);
+
   return (
-    <div className="pipeline">
+    <div className="pipeline" ref={rootRef}>
       <Row title="Your network" report={local} />
       <Row title="Control server" report={control} />
     </div>

@@ -1,5 +1,9 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
+import Magnet from "../react-bits/Magnet";
+import HeroTitle from "../components/HeroTitle";
+import NetworkHero from "../components/NetworkHero";
+import HowItWorks from "../components/HowItWorks";
 import type { Phase } from "../types";
 
 const MESSAGES = [
@@ -47,7 +51,7 @@ export default function Home({ phase, error, onRun, onViewDiagnosis }: HomeProps
   return (
     <section className="stack">
       <div className="card hero">
-        <h1>Can't reach a website? Find out why.</h1>
+        <HeroTitle />
         <p>
           Paste a URL. SulfNet checks DNS, TCP, TLS and HTTP from your network and from an outside
           server, then tells you exactly where it breaks.
@@ -66,9 +70,11 @@ export default function Home({ phase, error, onRun, onViewDiagnosis }: HomeProps
             autoCorrect="off"
             autoFocus
           />
-          <button className="btn" type="submit" disabled={loading || !url.trim()}>
-            {loading ? "Running..." : "Run Diagnostic"}
-          </button>
+          <Magnet padding={60} magnetStrength={4} disabled={loading}>
+            <button className="btn" type="submit" disabled={loading || !url.trim()}>
+              {loading ? "Running..." : "Run Diagnostic"}
+            </button>
+          </Magnet>
         </form>
       </div>
 
@@ -76,6 +82,11 @@ export default function Home({ phase, error, onRun, onViewDiagnosis }: HomeProps
         <div className="panel panel--loading" role="status">
           <p className="panel__title">Running checks</p>
           <LoadingText />
+          <div className="conveyor" aria-hidden="true">
+            <span className="conveyor__pkt" />
+            <span className="conveyor__pkt" />
+            <span className="conveyor__pkt" />
+          </div>
         </div>
       )}
 
@@ -83,9 +94,11 @@ export default function Home({ phase, error, onRun, onViewDiagnosis }: HomeProps
         <div className="panel panel--done" role="status">
           <p className="panel__title">Diagnostic complete</p>
           <p>Your results are ready.</p>
-          <button className="btn btn--white" type="button" onClick={onViewDiagnosis}>
-            View Diagnosis →
-          </button>
+          <Magnet padding={50} magnetStrength={4}>
+            <button className="btn btn--white" type="button" onClick={onViewDiagnosis}>
+              View Diagnosis →
+            </button>
+          </Magnet>
         </div>
       )}
 
@@ -95,6 +108,9 @@ export default function Home({ phase, error, onRun, onViewDiagnosis }: HomeProps
           <p>{error}</p>
         </div>
       )}
+
+      <NetworkHero />
+      <HowItWorks />
     </section>
   );
 }

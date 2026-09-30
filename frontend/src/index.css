@@ -681,3 +681,400 @@ tr.mismatch td {
     animation: none;
   }
 }
+
+/* Theme toggle */
+.header__right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  background: var(--yellow);
+  color: #000000;
+  border: var(--border);
+  box-shadow: 4px 4px 0 var(--ink);
+  cursor: pointer;
+  transition: transform 0.08s, box-shadow 0.08s;
+}
+
+.theme-toggle:hover {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 var(--ink);
+}
+
+.theme-toggle:active {
+  transform: translate(4px, 4px);
+  box-shadow: 0 0 0 var(--ink);
+}
+
+.theme-toggle:focus-visible {
+  outline: 3px solid var(--teal);
+  outline-offset: 3px;
+}
+
+.theme-toggle svg {
+  display: block;
+  width: 24px;
+  height: 24px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .theme-toggle {
+    transition: none;
+  }
+}
+
+/* Dark mode */
+:root {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --white: #17171d;
+  --ink: #f4f4ef;
+}
+
+:root[data-theme="dark"] body {
+  background-color: #0b0b0f;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.14) 1.2px, transparent 1.2px);
+}
+
+/* Anything sitting on a yellow, teal or red fill keeps black text */
+:root[data-theme="dark"] .logo,
+:root[data-theme="dark"] .btn,
+:root[data-theme="dark"] .input:focus,
+:root[data-theme="dark"] .panel--loading,
+:root[data-theme="dark"] .panel--done,
+:root[data-theme="dark"] .panel--error,
+:root[data-theme="dark"] .verdict,
+:root[data-theme="dark"] .badge--pass,
+:root[data-theme="dark"] .badge--fail,
+:root[data-theme="dark"] .badge--warn,
+:root[data-theme="dark"] tr.mismatch td,
+:root[data-theme="dark"] .pipe-node--pass,
+:root[data-theme="dark"] .pipe-node--fail,
+:root[data-theme="dark"] .lat-stat--local,
+:root[data-theme="dark"] .lat-delta--notable {
+  color: #000000;
+}
+
+/* Buttons and text that sit on the dark surface keep light text */
+:root[data-theme="dark"] .btn--white,
+:root[data-theme="dark"] .btn:disabled {
+  color: var(--ink);
+}
+
+:root[data-theme="dark"] .pipe-node--skip,
+:root[data-theme="dark"] .lat-ms--skip {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+/* Hero headline */
+.ht-word {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: top;
+  margin-right: 0.22em;
+  padding-bottom: 0.08em;
+}
+
+.ht-word__inner {
+  display: inline-block;
+  position: relative;
+  z-index: 1;
+}
+
+.ht-word--mark {
+  position: relative;
+  padding: 0 0.14em;
+}
+
+.ht-mark {
+  position: absolute;
+  inset: 0.08em 0 0.04em 0;
+  background: var(--yellow);
+}
+
+.ht-word--mark .ht-word__inner {
+  color: #000000;
+}
+
+/* Panels and loading conveyor */
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: translate(10px, 10px);
+    box-shadow: 0 0 0 var(--ink);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+    box-shadow: var(--shadow);
+  }
+}
+
+.panel {
+  animation: panel-in 0.28s cubic-bezier(0.2, 0.9, 0.3, 1.25) both;
+}
+
+.conveyor {
+  position: relative;
+  height: 22px;
+  margin-top: 14px;
+  border: var(--border);
+  background: var(--white);
+  overflow: hidden;
+}
+
+.conveyor__pkt {
+  position: absolute;
+  top: 3px;
+  left: -18px;
+  width: 12px;
+  height: 12px;
+  background: var(--ink);
+  animation: conveyor 1.2s steps(12) infinite;
+}
+
+.conveyor__pkt:nth-child(2) {
+  animation-delay: -0.4s;
+}
+
+.conveyor__pkt:nth-child(3) {
+  animation-delay: -0.8s;
+}
+
+@keyframes conveyor {
+  to {
+    left: 100%;
+  }
+}
+
+/* Network diagram */
+.nh {
+  background: var(--white);
+  border: var(--border);
+  box-shadow: var(--shadow);
+  padding: 18px 20px 20px;
+}
+
+.nh-scroll {
+  overflow-x: auto;
+}
+
+.nh svg {
+  display: block;
+  width: 100%;
+  min-width: 640px;
+  height: auto;
+}
+
+.nh-line {
+  stroke: var(--ink);
+  stroke-width: 3;
+}
+
+.nh-node,
+.nh-gate {
+  fill: var(--white);
+  stroke: var(--ink);
+  stroke-width: 3;
+  transition: fill 0.15s;
+}
+
+.nh-text {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  fill: var(--ink);
+}
+
+.nh-lane-label {
+  font-size: 15px;
+  letter-spacing: 1px;
+}
+
+.nh-node-label,
+.nh-gate-label {
+  font-size: 17px;
+}
+
+.nh-site-label {
+  font-size: 20px;
+  letter-spacing: 2px;
+}
+
+.nh-gategroup.is-pass .nh-gate,
+.nh-sitegroup.is-pass .nh-node {
+  fill: var(--teal);
+}
+
+.nh-gategroup.is-fail .nh-gate {
+  fill: var(--red);
+}
+
+.is-pass .nh-text,
+.is-fail .nh-text {
+  fill: #000000;
+}
+
+.nh-gategroup {
+  cursor: help;
+}
+
+.nh-pkt--local {
+  fill: var(--yellow);
+  stroke: var(--ink);
+  stroke-width: 3;
+}
+
+.nh-pkt--ctrl {
+  fill: var(--ink);
+  stroke: var(--white);
+  stroke-width: 2;
+}
+
+.nh-tag rect {
+  fill: var(--red);
+  stroke: var(--ink);
+  stroke-width: 3;
+}
+
+.nh-tag text {
+  fill: #000000;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 1px;
+}
+
+.nh-caption {
+  margin: 14px 0 0;
+  min-height: 3.2em;
+  font-size: 15px;
+}
+
+/* How a page loads */
+.hiw-intro {
+  margin: 0 0 18px;
+  max-width: 70ch;
+}
+
+.hiw-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 18px;
+}
+
+.hiw-card {
+  background: var(--white);
+  border: var(--border);
+  box-shadow: var(--shadow);
+  padding: 18px;
+  outline: none;
+}
+
+.hiw-card h4 {
+  font-size: 28px;
+  margin: 12px 0 4px;
+  letter-spacing: -0.5px;
+}
+
+.hiw-card p {
+  margin: 0;
+}
+
+.hiw-num {
+  display: inline-block;
+  padding: 2px 8px;
+  border: var(--border);
+  font-size: 13px;
+  font-weight: 700;
+  color: #000000;
+  background: var(--yellow);
+}
+
+.hiw-card:nth-child(even) .hiw-num {
+  background: var(--teal);
+}
+
+.hiw-more {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.2s;
+}
+
+.hiw-more>div {
+  overflow: hidden;
+  min-height: 0;
+}
+
+.hiw-more p {
+  margin: 12px 0 0;
+  font-size: 14px;
+}
+
+.hiw-card:hover .hiw-more,
+.hiw-card:focus-within .hiw-more {
+  grid-template-rows: 1fr;
+}
+
+@media (hover: none) {
+  .hiw-more {
+    grid-template-rows: 1fr;
+  }
+}
+
+/* Hover lifts */
+.hiw-card,
+.lat-stat,
+.explain,
+.tips,
+.verdict,
+.pipe-node {
+  transition: transform 0.12s, box-shadow 0.12s;
+}
+
+.hiw-card:hover,
+.lat-stat:hover,
+.explain:hover,
+.tips:hover,
+.verdict:hover {
+  transform: translate(-3px, -3px);
+  box-shadow: 9px 9px 0 var(--ink);
+}
+
+.pipe-node:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0 var(--ink);
+}
+
+.table-wrap tbody tr:not(.mismatch):hover td {
+  background: rgba(255, 212, 0, 0.22);
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .panel,
+  .conveyor__pkt {
+    animation: none;
+  }
+
+  .hiw-card,
+  .lat-stat,
+  .explain,
+  .tips,
+  .verdict,
+  .pipe-node,
+  .hiw-more {
+    transition: none;
+  }
+}

@@ -1,4 +1,5 @@
 import type { CheckReport, Stage, StageResult } from "../types";
+import CountUp from "./CountUp";
 
 const STAGES: { key: Stage; label: string }[] = [
   { key: "dns", label: "DNS" },
@@ -88,7 +89,9 @@ export default function LatencyChart({
     return { key, label, l, c, g: gap(l, c) };
   });
 
-  const values = rows.flatMap((r) => [r.l.ms, r.c.ms]).filter((v): v is number => typeof v === "number");
+  const values = rows
+    .flatMap((r) => [r.l.ms, r.c.ms])
+    .filter((v): v is number => typeof v === "number");
   if (values.length === 0) return null;
 
   const max = Math.max(...values, 1);
@@ -116,11 +119,15 @@ export default function LatencyChart({
       <div className="lat-stats">
         <div className="lat-stat lat-stat--local">
           <span className="lat-stat__label mono">Your network</span>
-          <span className="lat-stat__value">{localTotal} ms</span>
+          <span className="lat-stat__value">
+            <CountUp value={localTotal} suffix=" ms" />
+          </span>
         </div>
         <div className="lat-stat lat-stat--control">
           <span className="lat-stat__label mono">Control server</span>
-          <span className="lat-stat__value">{controlTotal} ms</span>
+          <span className="lat-stat__value">
+            <CountUp value={controlTotal} suffix=" ms" />
+          </span>
           <span className="lat-stat__sub mono">
             {totalDiff === 0
               ? "same total"
@@ -147,11 +154,14 @@ export default function LatencyChart({
             <div className="lat-head">
               <span className="lat-stage">{row.label}</span>
               {row.g && (
-                <span className={`lat-delta mono${row.g.notable ? " lat-delta--notable" : ""}`}>
+                <span
+                  className={`lat-delta mono${row.g.notable ? " lat-delta--notable" : ""}`}
+                >
                   {row.g.diff === 0
                     ? "same"
                     : `${row.g.diff > 0 ? "+" : "-"}${Math.abs(row.g.diff)} ms`}
-                  {row.g.notable && ` · ${row.g.ratio.toFixed(1)}x ${row.g.diff > 0 ? "slower" : "faster"} here`}
+                  {row.g.notable &&
+                    ` · ${row.g.ratio.toFixed(1)}x ${row.g.diff > 0 ? "slower" : "faster"} here`}
                 </span>
               )}
             </div>

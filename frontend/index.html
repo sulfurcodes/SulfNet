@@ -4,6 +4,14 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      try {
+        var saved = localStorage.getItem("sulfnet-theme");
+        if (saved === "dark" || saved === "light") {
+          document.documentElement.dataset.theme = saved;
+        }
+      } catch (e) {}
+    </script>
     <title>SulfNet - Why can't I reach it?</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
