@@ -269,9 +269,7 @@ function tipsFor(v: Omit<Verdict, "tips">): string[] {
   switch (v.code) {
     case "REACHABLE":
       return [
-        "If one page still won't load, try the exact address from your browser's address bar.",
-        "Try a private window, or clear this site's cache and cookies. The problem may be in your browser.",
-        "Turn off any VPN, proxy or browser extension that could be interfering, then try again.",
+        "Everything looks good. Rest assured that your connection is working and the site is up.",
       ];
     case "INVALID_URL":
       return [
