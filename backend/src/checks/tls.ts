@@ -2,6 +2,9 @@ import tls from "node:tls";
 import net from "node:net";
 import type { TlsResult } from "./types.js";
 
+const asText = (v: string | string[] | undefined): string | undefined =>
+  Array.isArray(v) ? v.join(", ") : v;
+
 export function checkTls(
   hostname: string,
   ip: string,
@@ -33,13 +36,18 @@ export function checkTls(
       const authError = socket.authorizationError
         ? String(socket.authorizationError)
         : undefined;
+      const validToMs = cert.valid_to ? Date.parse(cert.valid_to) : NaN;
+
       finish({
         ok: socket.authorized,
         protocol: socket.getProtocol(),
+        subject: asText(cert.subject?.CN),
+        issuer: asText(cert.issuer?.O) ?? asText(cert.issuer?.CN),
+        validFrom: cert.valid_from,
         validTo: cert.valid_to,
-        issuer: Array.isArray(cert.issuer?.O)
-          ? cert.issuer.O.join(", ")
-          : cert.issuer?.O,
+        daysLeft: Number.isNaN(validToMs)
+          ? undefined
+          : Math.floor((validToMs - Date.now()) / 86_400_000),
         error: authError ? { code: authError, message: authError } : undefined,
       });
     });

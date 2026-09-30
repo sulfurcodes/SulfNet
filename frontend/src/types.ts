@@ -11,6 +11,12 @@ export interface ResolverAnswer {
   error?: { code?: string; message: string };
 }
 
+export interface RedirectHop {
+  url: string;
+  status: number;
+  ms: number;
+}
+
 export interface StageResult {
   ok: boolean;
   ms?: number;
@@ -19,10 +25,14 @@ export interface StageResult {
   addresses?: string[];
   resolvers?: ResolverAnswer[];
   protocol?: string | null;
-  validTo?: string;
+  subject?: string;
   issuer?: string;
+  validFrom?: string;
+  validTo?: string;
+  daysLeft?: number;
   status?: number;
-  location?: string;
+  finalUrl?: string;
+  hops?: RedirectHop[];
 }
 
 export interface CheckReport {
@@ -44,6 +54,7 @@ export interface Verdict {
   title: string;
   summary: string;
   notes: string[];
+  tips: string[];
 }
 
 export interface DiagnoseResponse {

@@ -43,7 +43,7 @@ body {
   padding: 24px 20px 64px;
 }
 
-.stack > * + * {
+.stack>*+* {
   margin-top: 28px;
 }
 
@@ -356,6 +356,7 @@ tr.mismatch td {
   .blink {
     animation: none;
   }
+
   .btn {
     transition: none;
   }
@@ -369,7 +370,7 @@ tr.mismatch td {
   padding: 24px 20px;
 }
 
-.pipeline > * + * {
+.pipeline>*+* {
   margin-top: 30px;
 }
 
@@ -443,5 +444,240 @@ tr.mismatch td {
 @media (max-width: 640px) {
   .pipe-arrow {
     display: none;
+  }
+}
+
+/* Tips and redirect chain panels */
+.tips,
+.chain-panel {
+  background: var(--white);
+  border: var(--border);
+  box-shadow: var(--shadow);
+  padding: 22px 26px;
+}
+
+.tips ol {
+  margin: 14px 0 0;
+  padding-left: 24px;
+  max-width: 70ch;
+}
+
+.tips li+li {
+  margin-top: 8px;
+}
+
+.badge--warn {
+  background: var(--yellow);
+}
+
+.chain-panel>*+* {
+  margin-top: 18px;
+}
+
+.chain-label {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin: 0 0 8px;
+}
+
+.chain {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.chain__hop {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 5px 0;
+}
+
+.chain__url {
+  font-size: 14px;
+  word-break: break-all;
+}
+
+/* Latency waterfall */
+.lat-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.lat-stat {
+  border: var(--border);
+  box-shadow: var(--shadow);
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.lat-stat--local {
+  background: var(--yellow);
+}
+
+.lat-stat--control {
+  background: var(--ink);
+  color: var(--white);
+}
+
+.lat-stat__label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.lat-stat__value {
+  font-size: clamp(28px, 5vw, 40px);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -1px;
+}
+
+.lat-stat__sub {
+  font-size: 13px;
+}
+
+.lat-card {
+  background: var(--white);
+  border: var(--border);
+  box-shadow: var(--shadow);
+  padding: 20px 22px 24px;
+}
+
+.lat-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  font-size: 13px;
+  margin-bottom: 18px;
+}
+
+.lat-swatch {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: var(--border);
+  vertical-align: -3px;
+  margin-right: 6px;
+}
+
+.lat-swatch--local {
+  background: var(--yellow);
+}
+
+.lat-swatch--control {
+  background: var(--ink);
+}
+
+.lat-swatch--fail {
+  background: var(--red);
+}
+
+.lat-group+.lat-group {
+  margin-top: 22px;
+}
+
+.lat-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.lat-stage {
+  font-weight: 700;
+  font-size: 20px;
+}
+
+.lat-delta {
+  font-size: 13px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border: var(--border);
+  background: var(--white);
+}
+
+.lat-delta--notable {
+  background: var(--yellow);
+  box-shadow: 3px 3px 0 var(--ink);
+}
+
+.lat-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.lat-who {
+  width: 44px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  flex: none;
+}
+
+.lat-track {
+  flex: 1;
+  height: 28px;
+  border-left: var(--border);
+  min-width: 0;
+}
+
+.lat-bar {
+  height: 100%;
+  border: var(--border);
+  border-left: 0;
+  transform-origin: left center;
+  animation: lat-grow 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.lat-bar--local {
+  background: var(--yellow);
+}
+
+.lat-bar--control {
+  background: var(--ink);
+}
+
+.lat-bar--fail {
+  background: var(--red);
+}
+
+.lat-ms {
+  width: 76px;
+  flex: none;
+  text-align: right;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.lat-ms--skip {
+  font-weight: 400;
+  color: rgba(0, 0, 0, 0.55);
+}
+
+@keyframes lat-grow {
+  from {
+    transform: scaleX(0);
+  }
+
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lat-bar {
+    animation: none;
   }
 }

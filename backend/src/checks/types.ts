@@ -26,13 +26,23 @@ export interface DnsResult extends BaseResult {
 
 export interface TlsResult extends BaseResult {
   protocol?: string | null;
-  validTo?: string;
+  subject?: string;
   issuer?: string;
+  validFrom?: string;
+  validTo?: string;
+  daysLeft?: number;
+}
+
+export interface RedirectHop {
+  url: string;
+  status: number;
+  ms: number;
 }
 
 export interface HttpResult extends BaseResult {
   status?: number;
-  location?: string;
+  finalUrl?: string;
+  hops?: RedirectHop[];
 }
 
 export interface CheckReport {

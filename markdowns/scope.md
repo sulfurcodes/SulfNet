@@ -1,285 +1,522 @@
-# SulfNet — Final MVP Specification (v5)
+# SulfNet — Project Scope
 
-### Code-ready edition — Gemma via hosted API
+## 1. Project Overview
 
-v5 changes one decision: Gemma is called through the **hosted API (Google AI Studio)** only. The self-hosted/Ollama path is removed. Nothing else in scope changed. Everything from v4 (data shapes, decision table, error states, CORS notes) carries over as-is.
+SulfNet is a network diagnostics tool built to answer a simple question:
 
-Scoped for an 8-hour hackathon. SSRF hardening / rate limiting / configurable timeouts are not tracked deliverables.
+> **Why can't I reach this website?**
 
----
+Instead of treating a failed website connection as one generic error, SulfNet breaks the connection into stages and compares results from two different network locations:
 
-## 1. Project overview (unchanged)
-
-A network diagnostics tool that answers **"Why can't I reach this website?"** by running the same checks — DNS → TCP → TLS → HTTP — from two vantage points at once:
-
-1. **Local Probe** — runs from the user's own machine/network via a local Node.js agent.
+1. **Local Probe** — runs from the user's own machine and network.
 2. **Control Probe** — runs from an external server.
 
-The results are compared to diagnose whether a failure looks like local network interference, a server-side/global issue, or is inconclusive. The tool never claims censorship or blocking is *proven* — it reports "possible local network interference," not "your ISP is blocking this."
+The results are compared by a rule-based diagnosis engine to determine where the failure occurs and what the available evidence suggests.
+
+Google Gemma is used only to explain the resulting diagnosis in plain language. It does not make the underlying diagnosis.
 
 ---
 
-## 2. Scope (locked)
+## 2. Current Scope
 
-Two screens only:
+The current MVP includes a complete local end-to-end diagnostic flow.
 
-### Screen 1 — Home
-- URL input field, "Run Diagnostic" button
-- On click: kicks off local probe + control probe concurrently
-- While running: loading state with status messages that rotate every 2–3 seconds
-- Once both probes + comparison + Gemma explanation are ready: a **"View Diagnosis"** button appears (see §7 for what happens if a probe fails or the URL is bad)
+### Core connection checks
 
-### Screen 2 — Diagnosis
-- Target URL, a Local-vs-Control results table (DNS/TCP/TLS/HTTP), diagnosis verdict, Gemma explanation paragraph, "Run another check" button
+Each probe performs the following stages in order:
 
-No history, no accounts, no multi-page navigation, no settings.
-
----
-
-## 3. What we are deliberately NOT building
-
+```text
+DNS → TCP → TLS → HTTP
 ```
-❌ Proxy marketplace / VPN integration / browser extension / mobile app
+
+### DNS diagnostics
+
+SulfNet performs:
+
+- System DNS lookup using the machine's configured resolver.
+- Direct DNS queries to Cloudflare (`1.1.1.1`).
+- Direct DNS queries to Google (`8.8.8.8`).
+- Comparison of system DNS results with public resolver results.
+- Detection of differing DNS answers.
+- Detection of non-routable placeholder answers such as `0.0.0.0`.
+- Detection of cases where the local resolver fails while public DNS succeeds.
+- Detection of cases where direct access to public resolvers also fails.
+
+### TCP diagnostics
+
+SulfNet checks whether a TCP connection can be established to the resolved IP and target port.
+
+### TLS diagnostics
+
+For HTTPS targets, SulfNet performs a TLS handshake and records information including:
+
+- negotiated TLS protocol
+- certificate expiry
+- certificate issuer
+- TLS authorization errors
+
+### HTTP diagnostics
+
+The final stage performs an HTTP request and records:
+
+- HTTP status code
+- request latency
+- redirect location when available
+
+### Failure sequencing
+
+Checks are intentionally sequential.
+
+If DNS fails, TCP/TLS/HTTP are skipped.
+
+If TCP fails, TLS/HTTP are skipped.
+
+If TLS fails, HTTP is skipped.
+
+This prevents later stages from producing misleading results when an earlier dependency has already failed.
+
+---
+
+## 3. Local Agent
+
+The local probe runs through a Node.js/Express agent bound to:
+
+```text
+127.0.0.1:8787
+```
+
+The agent:
+
+- accepts a target URL
+- performs the complete local diagnostic
+- returns the structured report
+- is intentionally kept local rather than exposed as a public server
+
+Endpoint:
+
+```text
+POST /check
+```
+
+---
+
+## 4. Control Server
+
+The control server runs the same diagnostic engine from an external network environment.
+
+Responsibilities include:
+
+- running the control probe
+- receiving the local probe report
+- running the comparison engine
+- generating the final diagnosis
+- calling the hosted Gemma API
+- returning the complete diagnosis response
+
+Endpoints:
+
+```text
+POST /check
+POST /diagnose
+```
+
+---
+
+## 5. Diagnosis Engine
+
+The diagnosis engine is deterministic and rule-based.
+
+The AI layer is not responsible for deciding whether a website is reachable or whether a problem appears local.
+
+The engine evaluates:
+
+- local failures
+- control failures
+- failed stages
+- DNS answer differences
+- public resolver results
+- non-routable DNS answers
+- HTTP status differences
+
+### Current diagnosis categories
+
+SulfNet can identify or describe cases including:
+
+```text
+REACHABLE
+LOCAL_DNS_FAIL
+LOCAL_DNS_RESOLVER_FAIL
+LOCAL_DNS_SINKHOLE
+LOCAL_TCP_FAIL
+LOCAL_TLS_FAIL
+LOCAL_HTTP_FAIL
+CONTROL_ONLY_FAILURE
+DOMAIN_NOT_FOUND
+HTTP_ERROR_EVERYWHERE
+DOWN_EVERYWHERE_<STAGE>
+DIFFERENT_STAGES
+```
+
+The diagnosis language intentionally avoids claiming that blocking, censorship, or interference has been conclusively proven.
+
+Instead, SulfNet reports what the observed evidence supports, using terms such as:
+
+- possible
+- likely
+- appears
+- may indicate
+
+---
+
+## 6. DNS Anomaly Detection
+
+DNS diagnostics are an important part of SulfNet.
+
+A system resolver may return an answer that differs from public DNS because of:
+
+- normal CDN or geographic routing
+- local DNS configuration
+- router behavior
+- filtering
+- DNS manipulation
+- hosts-file entries
+- other network-level behavior
+
+SulfNet therefore treats DNS differences as evidence rather than automatically labeling them as malicious behavior.
+
+### DNS sinkhole detection
+
+A particularly useful case is when the local system resolver returns a non-routable address such as:
+
+```text
+0.0.0.0
+127.x.x.x
+::
+::1
+```
+
+while public resolvers return a real address.
+
+This can indicate that the hostname is being redirected to a dead end by a local DNS mechanism, content filter, router, ISP, or hosts file.
+
+The application reports this as a possible DNS sinkhole rather than definitive proof of the exact source.
+
+---
+
+## 7. Gemma Integration
+
+Gemma is used as an explanation layer after the rule-based diagnosis has already been calculated.
+
+Flow:
+
+```text
+Probe Results
+      ↓
+Rule-Based Diagnosis
+      ↓
+Compact Diagnostic Context
+      ↓
+Hosted Gemma API
+      ↓
+Plain-English Explanation
+```
+
+The model receives:
+
+- target hostname
+- rule-based verdict
+- diagnostic summary
+- local check results
+- control check results
+- public resolver information
+
+The model is instructed to:
+
+- use only the supplied evidence
+- avoid inventing causes
+- explain the result in simple language
+- provide practical next steps
+
+The API key remains on the control server.
+
+### Fallback behavior
+
+Gemma is not required for the core diagnostic to function.
+
+If the API:
+
+- is unavailable
+- times out
+- returns an error
+- returns empty text
+
+SulfNet falls back to the rule-based explanation.
+
+---
+
+## 8. Frontend Scope
+
+The frontend currently consists of two screens.
+
+### Home
+
+The Home screen provides:
+
+- URL input
+- Run Diagnostic button
+- loading state
+- rotating progress messages
+- local/control connectivity errors
+- completion state
+- View Diagnosis action
+
+### Diagnosis
+
+The Diagnosis screen provides:
+
+- target hostname
+- final verdict
+- diagnosis summary
+- optional diagnostic notes
+- Gemma explanation
+- local vs control comparison table
+- per-stage status
+- latency information
+- error codes
+- relevant DNS/TLS/HTTP details
+- Run another action
+
+The interface uses a deliberately simple neo-brutalist visual style with:
+
+- strong borders
+- high contrast
+- large typography
+- yellow/teal/red state colors
+- compact technical metadata
+
+---
+
+## 9. Error Handling
+
+There is a distinction between a **probe infrastructure failure** and a **target-site failure**.
+
+### Infrastructure failures
+
+Examples:
+
+- local agent unavailable
+- control server unavailable
+- frontend unable to reach either service
+- invalid request
+
+These stop the diagnostic flow and return the user to an actionable error state.
+
+### Target-site failures
+
+Examples:
+
+- DNS failure
+- TCP timeout
+- TLS handshake failure
+- HTTP error
+
+These are not treated as application errors.
+
+They are the actual diagnostic result and continue to the Diagnosis screen.
+
+---
+
+## 10. Testing Scope
+
+The backend includes test cases for multiple diagnosis scenarios, including:
+
+- successful connectivity
+- local DNS failure
+- control-only failure
+- domain not found
+- TCP failure
+- HTTP errors
+- different failure stages
+- public DNS resolver comparisons
+- DNS sinkhole detection
+
+TypeScript type checking is also part of the development workflow.
+
+---
+
+## 11. Architecture
+
+Current architecture:
+
+```text
+┌────────────────────┐
+│    React Frontend  │
+│   Vite + TypeScript│
+└─────────┬──────────┘
+          │
+     ┌────┴────┐
+     │         │
+     ▼         ▼
+┌─────────┐  ┌───────────────┐
+│  Local  │  │    Control    │
+│  Agent  │  │    Server     │
+│  :8787  │  │     :8788     │
+└────┬────┘  └───────┬───────┘
+     │                │
+     ▼                ▼
+ Your network     External network
+     │                │
+     └───────┬────────┘
+             ▼
+      Diagnosis Engine
+             │
+             ▼
+        Gemma API
+             │
+             ▼
+       Diagnosis UI
+```
+
+---
+
+## 12. Technology Scope
+
+### Frontend
+
+- React
+- TypeScript
+- Vite
+- CSS
+
+### Backend
+
+- Node.js
+- Express
+- TypeScript
+
+### AI
+
+- Google GenAI SDK
+- Hosted Gemma API
+
+### Networking
+
+- Node DNS APIs
+- Node TCP sockets
+- Node TLS
+- Fetch / HTTP
+
+No database is currently required for the MVP.
+
+---
+
+## 13. Deliberately Out of Scope
+
+The following are not part of the current core project:
+
+```text
+❌ VPN integration
+❌ Proxy integration
+❌ Browser extension
+❌ Mobile application
 ❌ Global censorship map
-❌ Machine learning–based diagnosis (the DNS/TCP/TLS/HTTP verdict stays rule-based)
-❌ Traceroute / BGP analysis / packet capture
-❌ IPv6, multiple cloud regions, large URL databases
-❌ User accounts, auth, RBAC
-❌ PostgreSQL, Redis, Kafka, Kubernetes
-❌ Scan history / multi-screen dashboard
-❌ Next.js / SSR / client-side routing libraries
-❌ Flutter (any target)
-❌ Self-hosted / local Gemma (Ollama etc.) — hosted API only
-❌ SSRF hardening, request rate limiting, configurable timeouts as tracked deliverables (a basic fixed per-stage timeout still exists, see §5)
+❌ Packet capture
+❌ BGP analysis
+❌ Full traceroute implementation
+❌ User accounts
+❌ Authentication
+❌ RBAC
+❌ PostgreSQL
+❌ Redis
+❌ Kafka
+❌ Kubernetes
+❌ Large-scale URL databases
+❌ Distributed scanning infrastructure
+❌ Scan history
+❌ Multi-screen dashboard
+❌ Next.js / SSR
+❌ Flutter
+❌ Self-hosted Gemma / Ollama
 ```
+
+These features may be considered in a future version but are intentionally outside the current MVP.
 
 ---
 
-## 4. Architecture
+## 14. Potential Future Features
 
-```
-                         REACT FRONTEND
-                         (Vite, browser)
-                              │
-                    ┌─────────┴─────────┐
-                    │                   │
-                    ▼                   ▼
-             LOCAL AGENT           CONTROL SERVER
-            127.0.0.1:8787        cloud-hosted
-                    │                   │
-                    ▼                   │
-             User's network             │
-                    │                   ▼
-                    │            External network
-                    │                   │
-                    └─────────┬─────────┘
-                              ▼
-                       Comparison engine
-                     (rule-based verdict)
-                              │
-                              ▼
-                    CONTROL SERVER ──► Gemma API
-                  (verdict → explanation text)   (Google AI Studio, hosted)
-                              │
-                              ▼
-                         React UI
-```
+The following are possible extensions after the current implementation is stable:
 
-- **`apps/web`** — React (Vite). Calls local agent + control server, renders both screens, does no raw networking itself.
-- **`apps/local-agent`** — Node/Express, `127.0.0.1:8787` only, never public.
-- **`apps/control`** — Node/Express, cloud-hosted. Hosts the comparison engine and the `/api/explain` endpoint, which calls the Gemma API. The API key lives only here.
-- **`packages/probe-engine`** — shared DNS/TCP/TLS/HTTP probe code used by both.
+### Diagnostic improvements
 
-Tech stack: React + Vite + TypeScript, Tailwind + shadcn/ui, Framer Motion, Node/Express, Gemma (hosted API). Design system: Palette C, neo-brutalist — see the separate design-system doc.
+- More detailed per-stage diagnostics
+- Additional DNS record types
+- IPv6 diagnostics
+- More public DNS resolvers
+- Better DNS answer comparison
+- Certificate chain information
+- More HTTP metadata
+
+### Network analysis
+
+- Traceroute-style analysis
+- Multiple external control locations
+- Geographic comparison
+- Latency comparison across locations
+- More advanced network-path diagnostics
+
+### User experience
+
+- More detailed live progress
+- Visual connection pipeline
+- Copy/share diagnostic results
+- Export diagnostic reports
+- Demo mode with controlled test cases
+- More detailed remediation guidance
+
+These features are optional and should not replace the stability of the existing diagnostic flow.
 
 ---
 
-## 5. Probe result shape
+## 15. Scope Principle
 
-Every stage result has the same shape, whether it's DNS/TCP/TLS/HTTP or local/control:
+SulfNet should remain focused on one problem:
 
-```ts
-type StageStatus = "pass" | "fail" | "skipped";
+> **Determine where a website connection fails, compare the result with an external network, and explain what the evidence suggests.**
 
-interface StageResult {
-  status: StageStatus;
-  latencyMs: number | null;   // null when skipped
-  error: string | null;       // e.g. "timeout", "ECONNREFUSED", null on pass
-  detail: Record<string, any> | null; // stage-specific extras, see below
-}
-```
+New features should directly improve one of those three goals.
 
-Stage-specific `detail` (best-effort, keep minimal):
-- `dns` → `{ resolvedIp }`
-- `tcp` → `{ port }`
-- `tls` → `{ protocol }` (e.g. `"TLSv1.3"`)
-- `http` → `{ statusCode }`
-
-**Sequencing:** stages run in order DNS → TCP → TLS → HTTP. The moment one fails, every later stage for that vantage point is recorded as `"skipped"` — matches the mockup's "— n/a" cells.
-
-**Timeout:** each stage gets a short fixed timeout (a few seconds) so a hung connection resolves as `status: "fail", error: "timeout"` instead of hanging the whole diagnostic. Fixed constant in probe-engine, not configurable.
-
-Full probe response (what both `/probe` endpoints return):
-
-```json
-{
-  "target": "https://example.com",
-  "stages": {
-    "dns":  { "status": "pass", "latencyMs": 21, "error": null, "detail": { "resolvedIp": "93.184.216.34" } },
-    "tcp":  { "status": "pass", "latencyMs": 37, "error": null, "detail": { "port": 443 } },
-    "tls":  { "status": "pass", "latencyMs": 64, "error": null, "detail": { "protocol": "TLSv1.3" } },
-    "http": { "status": "pass", "latencyMs": 142, "error": null, "detail": { "statusCode": 200 } }
-  },
-  "overall": "reachable"
-}
-```
-
-Failure example (the "TCP timeout" mockup case):
-
-```json
-{
-  "target": "https://some-site.com",
-  "stages": {
-    "dns":  { "status": "pass", "latencyMs": 22, "error": null, "detail": { "resolvedIp": "203.0.113.5" } },
-    "tcp":  { "status": "fail", "latencyMs": 3000, "error": "timeout", "detail": null },
-    "tls":  { "status": "skipped", "latencyMs": null, "error": null, "detail": null },
-    "http": { "status": "skipped", "latencyMs": null, "error": null, "detail": null }
-  },
-  "overall": "failed_at_tcp"
-}
-```
-
-`overall` is always either `"reachable"` or `"failed_at_<stage>"` (the first stage that failed).
+Features that add technology without improving the diagnostic capability should remain outside the project scope unless there is a clear reason to introduce them.
 
 ---
 
-## 6. Comparison engine — full decision table
+## 16. Current Development State
 
-Input: local's `overall` + control's `overall`. Output: a verdict.
+The core MVP currently works end-to-end in local development.
 
-| Local | Control | Verdict | Message |
-|---|---|---|---|
-| reachable | reachable | `reachable` | "Website appears reachable" |
-| failed at stage X | reachable | `local_interference` | "Possible local network interference" (failed stage: X) |
-| reachable | failed at stage Y | `control_side_issue` | "Your network reached it fine — the control probe couldn't. Likely an issue on the control server's side, not yours." |
-| failed at stage X | failed at same stage X | `global_issue` | "The site appears unreachable from both locations — likely a server-side issue, not local interference." |
-| failed at stage X | failed at stage Y (X ≠ Y) | `inconclusive` | "Both locations had trouble, but at different stages — inconclusive; may be two unrelated issues." |
+Completed:
 
-Verdict object passed to `/api/explain` and used to render the Diagnosis screen:
-
-```json
-{
-  "target": "https://some-site.com",
-  "verdict": "local_interference",
-  "failedStage": "tcp",
-  "local": { "...": "full probe response as above" },
-  "control": { "...": "full probe response as above" }
-}
+```text
+[✓] Local probe
+[✓] Control probe
+[✓] DNS diagnostics
+[✓] Public DNS resolver comparison
+[✓] DNS anomaly detection
+[✓] TCP diagnostics
+[✓] TLS diagnostics
+[✓] HTTP diagnostics
+[✓] Rule-based diagnosis engine
+[✓] Multiple diagnosis scenarios
+[✓] Hosted Gemma explanation
+[✓] Gemma fallback
+[✓] React frontend
+[✓] Home screen
+[✓] Diagnosis screen
+[✓] Local vs control results table
+[✓] Loading states
+[✓] Error handling
+[✓] Backend typecheck
+[✓] Diagnostic test cases
 ```
 
-(`failedStage` is `null` for the `reachable` verdict.)
-
----
-
-## 7. UI error / edge states
-
-Only two hard-stop error states on Home — everything else (including a Gemma failure, per §9) degrades gracefully rather than blocking the flow:
-
-1. **Invalid URL** — validate on submit (`new URL(input)` throws, or missing `http(s)://`). Inline error under the input; don't fire any requests.
-2. **Local or control probe unreachable** (network error hitting `127.0.0.1:8787` or the control host — the agent itself being unreachable, as opposed to the *target site* failing) — stop the rotating loading text, show an inline error ("Couldn't reach the local agent — make sure `npm run agent` is running" / "Couldn't reach the control server"), and offer "Try again" back on Home. Do **not** proceed to Diagnosis with partial data.
-
-The target site itself failing DNS/TCP/TLS/HTTP is not an error state — it's the diagnostic result and flows normally into the Diagnosis screen.
-
----
-
-## 8. Local dev networking (CORS)
-
-The React dev server (Vite, typically `http://localhost:5173`) calls the local agent (`http://127.0.0.1:8787`) and the control server directly from the browser, so both must send CORS headers:
-
-- **Local agent:** `Access-Control-Allow-Origin: http://localhost:5173` (or `*` — fine for an 8-hour hackathon) on `/probe`.
-- **Control server:** same, on `/api/probe` and `/api/explain`.
-
-If the frontend ever gets tunneled over HTTPS for the demo (e.g. ngrok) while still hitting `127.0.0.1`, Chrome's Private Network Access check may also require `Access-Control-Allow-Private-Network: true` on the preflight response. Harmless to add now.
-
----
-
-## 9. Gemma integration (hosted API)
-
-**Flow:** rule-based verdict (§6) → frontend `POST /api/explain` on the control server → control server calls the Gemma API → returns a 2–4 sentence plain-language paragraph → shown under the verdict badge on Diagnosis.
-
-**Setup:**
-1. Create an API key in Google AI Studio.
-2. Store it as an environment variable on the control server only (e.g. `GEMINI_API_KEY`) — never in the React app, the local agent, or the repo. Add `.env` to `.gitignore`.
-3. Pick the model from AI Studio's model list and put it in a second env var (e.g. `GEMMA_MODEL`) rather than hardcoding it, so swapping to a smaller/faster Gemma variant is a config change, not a code change. A small/lightweight variant is plenty for a 2–4 sentence paragraph and keeps latency low for the demo.
-4. Do this first thing (Block 1) so any key/quota/model-name problem surfaces early, not during final polish.
-
-**Call shape:** the control server makes a server-side HTTPS request to the Generative Language API for the chosen model (`generateContent`); check AI Studio's current docs for the exact endpoint and request body since model names and fields change. Set a hard timeout on this call (fixed constant, e.g. ~8s) so the fallback below actually fires instead of hanging the "View Diagnosis" button.
-
-**Prompt:** put all instructions in the single user turn rather than relying on a separate system-instruction field, since some Gemma models on the hosted API don't accept system instructions.
-
-```
-You explain network diagnostic results to a non-technical user in 2–4 sentences.
-Never state that censorship or blocking is proven — use cautious language
-("possible", "appears") rather than definitive claims.
-
-Verdict: local_interference
-Failed stage: tcp
-Local result: dns=pass, tcp=fail (timeout), tls=skipped, http=skipped
-Control result: dns=pass, tcp=pass, tls=pass, http=pass
-
-Explain what this means in plain language.
-```
-
-**Fallback:** if the API call errors, times out, or returns empty text, respond with a static template built from the verdict's `message` column in §6. The frontend never needs to know which path produced the text. Optionally return `{ explanation, source: "gemma" | "fallback" }` so you can tell during testing which one you're seeing.
-
-**Free-tier note:** the hosted API has rate limits. A handful of test runs plus a demo is normally fine, but avoid wiring anything that calls Gemma in a loop or on every keystroke — one call per completed diagnostic only.
-
----
-
-## 10. API contracts
-
-```
-Local agent:
-  GET  http://127.0.0.1:8787/probe?url=<target>
-       → probe response (§5)
-
-Control server:
-  GET  https://<control-host>/api/probe?url=<target>
-       → probe response (§5)
-
-  POST https://<control-host>/api/explain
-       body: verdict object (§6)
-       → { explanation: "<2-4 sentence text>", source: "gemma" | "fallback" }
-```
-
----
-
-## 11. Build plan (condensed)
-
-| Block | Focus |
-|---|---|
-| 1 | Get the Gemma API key working with a hello-world call from a scratch Node script (confirms key, model name, quota). In parallel, `probe-engine`: DNS/TCP/TLS/HTTP checks against known-good and known-bad URLs, matching the §5 shape exactly (incl. `skipped` stages and the fixed per-stage timeout). |
-| 2 | Local agent + control server wired around `probe-engine`, CORS headers in place (§8). Manually diff local vs control JSON. |
-| 3 | Comparison engine implementing the full §6 decision table (all five rows). |
-| 4 | React shell: Home screen (URL validation + the two error states from §7), rotating loading text, design-system styling. |
-| 5 | Diagnosis screen (table + verdict), `/api/explain` wired to the Gemma API with timeout + static fallback, then final polish + demo script. |
-
----
-
-## 12. Definition of done
-
-```
-[✓] Gemma API key + model configured via env vars on the control server only
-[✓] URL input + validation on Home screen (invalid-URL error state)
-[✓] Local DNS/TCP/TLS/HTTP probe, matching the §5 JSON shape
-[✓] Control DNS/TCP/TLS/HTTP probe, matching the §5 JSON shape
-[✓] Local/control-agent-unreachable error state on Home
-[✓] Rotating loading messages while probes run
-[✓] "View Diagnosis" button appears once probes + comparison + Gemma are ready
-[✓] Local/control comparison table on Diagnosis screen
-[✓] All 5 rows of the §6 decision table implemented, not just the local-interference case
-[✓] Gemma-generated explanation paragraph via the hosted API, with timeout + static fallback
-[✓] Presentable, polished 2-screen React UI matching the design system
-```
-
-Anything beyond this is optional and should not be attempted before the above is solid.
+Deployment, additional features, and further polish remain separate from the already-working local MVP.

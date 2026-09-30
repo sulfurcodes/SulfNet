@@ -1,6 +1,11 @@
+import { useState } from "react";
 import Pipeline from "../components/Pipeline";
+import LatencyChart from "../components/LatencyChart";
 import ResultsTable from "../components/ResultsTable";
+import CertPanel from "../components/CertPanel";
+import RedirectChain from "../components/RedirectChain";
 import ResolverTable from "../components/ResolverTable";
+import { buildReportText } from "../report";
 import type { DiagnoseResponse } from "../types";
 
 interface DiagnosisProps {
@@ -8,10 +13,24 @@ interface DiagnosisProps {
   onBack: () => void;
 }
 
+type CopyState = "idle" | "copied" | "failed";
+
 export default function Diagnosis({ result, onBack }: DiagnosisProps) {
   const { verdict, local, control, explanation, explanationSource } = result;
+  const [copy, setCopy] = useState<CopyState>("idle");
+
   const hasResolvers =
     (local.dns?.resolvers?.length ?? 0) > 0 || (control.dns?.resolvers?.length ?? 0) > 0;
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(buildReportText(result));
+      setCopy("copied");
+    } catch {
+      setCopy("failed");
+    }
+    setTimeout(() => setCopy("idle"), 2000);
+  }
 
   return (
     <section className="stack">
@@ -41,16 +60,33 @@ export default function Diagnosis({ result, onBack }: DiagnosisProps) {
         )}
       </div>
 
+      {verdict.tips.length > 0 && (
+        <div className="tips">
+          <span className="tag mono">What you can try</span>
+          <ol>
+            {verdict.tips.map((tip) => (
+              <li key={tip}>{tip}</li>
+            ))}
+          </ol>
+        </div>
+      )}
+
       <div>
         <h3 className="section-title mono">Where it breaks</h3>
         <Pipeline local={local} control={control} />
       </div>
+
+      <LatencyChart local={local} control={control} />
 
       <div>
         <h3 className="section-title mono">Your network vs control server</h3>
         <ResultsTable local={local} control={control} />
         <p className="legend">Yellow rows are where your network and the control server disagree.</p>
       </div>
+
+      <CertPanel local={local} control={control} />
+
+      <RedirectChain local={local} control={control} />
 
       {hasResolvers && (
         <div>
@@ -66,6 +102,9 @@ export default function Diagnosis({ result, onBack }: DiagnosisProps) {
       <div className="actions">
         <button className="btn" type="button" onClick={onBack}>
           ← Run another
+        </button>
+        <button className="btn btn--white" type="button" onClick={handleCopy}>
+          {copy === "copied" ? "Copied ✓" : copy === "failed" ? "Copy failed" : "Copy report"}
         </button>
       </div>
     </section>

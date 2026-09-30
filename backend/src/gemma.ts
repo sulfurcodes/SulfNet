@@ -51,7 +51,7 @@ export async function explainWithGemma(
   const prompt = [
     "You are the explanation engine for SulfNet, a tool that tells people why a website can't be reached.",
     "A rule-based check already decided the verdict below. Explain it to a non-technical person.",
-    "Rules: write 2 to 3 short sentences of plain English, then one line starting with 'Try:' giving 1 or 2 concrete next steps.",
+        "Rules: write 2 to 3 short sentences of plain English. Do not list fixes or next steps, because those are shown separately.",
     "Use only the data given. Do not invent causes that the data doesn't support. No markdown, no bullet points.",
     "",
     `Target: ${control.hostname ?? "unknown"}`,
