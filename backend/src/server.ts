@@ -7,7 +7,7 @@ import { explainWithGemma } from "./gemma.js";
 import { runProbes } from "./checks/proof.js";
 
 const PORT = Number(process.env.SERVER_PORT ?? process.env.PORT ?? 8788);
-const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN ?? "http://localhost:8788";
+const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN ?? "http://localhost:5173";
 
 const app = express();
 app.use(cors({ origin: ALLOWED_ORIGIN }));
