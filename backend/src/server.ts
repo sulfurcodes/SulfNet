@@ -50,13 +50,6 @@ app.post("/diagnose", async (req, res) => {
     return;
   }
 
-  app.post("/probe", async (req, res) => {
-    const { hostname, port } = req.body ?? {};
-    if (typeof hostname !== "string" || !Number.isInteger(port))
-      return res.status(400).end();
-    res.json(await runProbes(hostname, port, "control"));
-  });
-
   const control = await runChecks(url.trim());
   const verdict = diagnose(local, control);
   const explanation = await explainWithGemma(local, control, verdict);
@@ -71,6 +64,13 @@ app.post("/diagnose", async (req, res) => {
   });
 });
 
+app.post("/probe", async (req, res) => {
+    const { hostname, port } = req.body ?? {};
+    if (typeof hostname !== "string" || !Number.isInteger(port))
+      return res.status(400).end();
+    res.json(await runProbes(hostname, port, "control"));
+  });
+  
 app.listen(PORT, () => {
   console.log(`SulfNet control server listening on port ${PORT}`);
 });
