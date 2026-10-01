@@ -4,7 +4,7 @@ import cors from "cors";
 import { runChecks } from "./checks/index.js";
 
 const PORT = Number(process.env.AGENT_PORT ?? 8787);
-const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN ?? "http://localhost:5173";
+const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN ?? "http://localhost:8788";
 const CONTROL_URL = process.env.CONTROL_URL ?? "http://127.0.0.1:8788";
 const GEMMA_URL = process.env.GEMMA_URL;
 
