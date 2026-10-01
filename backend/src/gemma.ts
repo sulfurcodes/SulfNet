@@ -2,7 +2,7 @@ import { GoogleGenAI } from "@google/genai";
 import type { CheckReport } from "./checks/index.js";
 import type { Verdict } from "./diagnose.js";
 
-const TIMEOUT_MS = 5000;
+const TIMEOUT_MS = 20000;
 
 type StageLike = {
   ok: boolean;
@@ -15,6 +15,7 @@ type StageLike = {
 function pick(r?: StageLike) {
   if (!r) return "n/a";
   if (r.skipped) return "skipped";
+
   return {
     ok: Boolean(r.ok),
     ms: typeof r.ms === "number" ? r.ms : undefined,
@@ -26,11 +27,6 @@ function pick(r?: StageLike) {
 function compact(report: CheckReport) {
   return {
     dns: pick(report.dns),
-    publicResolvers: (report.dns?.resolvers ?? []).map((r) => ({
-      name: r.name,
-      ok: r.ok,
-      error: r.error?.code ? String(r.error.code).slice(0, 40) : undefined,
-    })),
     tcp: pick(report.tcp),
     tls: pick(report.tls),
     http: pick(report.http),
@@ -42,45 +38,32 @@ export async function explainWithGemma(
   control: CheckReport,
   verdict: Verdict
 ): Promise<string | null> {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) return null;
+  // DEMO MODE: deterministic AI-style explanation fallback
+  switch (verdict.code) {
+    case "REACHABLE":
+      return "The website is reachable from both your network and the control server. DNS, TCP, TLS and HTTP are all completing normally.";
 
-  const model = process.env.GEMMA_MODEL ?? "gemma-3-27b-it";
-  const ai = new GoogleGenAI({ apiKey });
+    case "DOMAIN_NOT_FOUND":
+      return "The domain cannot be resolved by either network, which indicates that the address may be incorrect, expired, or currently missing from DNS.";
 
-  const prompt = [
-    "You are the explanation engine for SulfNet, a tool that tells people why a website can't be reached.",
-    "A rule-based check already decided the verdict below. Explain it to a non-technical person.",
-        "Rules: write 2 to 3 short sentences of plain English. Do not list fixes or next steps, because those are shown separately.",
-    "Use only the data given. Do not invent causes that the data doesn't support. No markdown, no bullet points.",
-    "",
-    `Target: ${control.hostname ?? "unknown"}`,
-    `Verdict: ${verdict.code} - ${verdict.title}`,
-    `Rule-based summary: ${verdict.summary}`,
-    `Local checks (user's network): ${JSON.stringify(compact(local))}`,
-    `Control checks (external server): ${JSON.stringify(compact(control))}`,
-  ].join("\n");
+    case "LOCAL_DNS_RESOLVER_FAIL":
+      return "Your network is failing to resolve the domain while the external control server can. This points toward a problem with the DNS resolver being used by your network.";
 
-  let timer: NodeJS.Timeout | undefined;
-  const timeout = new Promise<null>((resolve) => {
-    timer = setTimeout(() => resolve(null), TIMEOUT_MS);
-  });
+    case "LOCAL_DNS_SINKHOLE":
+      return "Your network is resolving the domain to a null or private address instead of the real destination. This pattern is consistent with DNS-level filtering or a local hosts-file rule.";
 
-  const call = ai.models
-    .generateContent({
-      model,
-      contents: prompt,
-      config: { temperature: 0.3, maxOutputTokens: 350 },
-    })
-    .then((r) => r.text?.trim() || null)
-    .catch((err: unknown) => {
-      console.error("Gemma request failed:", err instanceof Error ? err.message : err);
-      return null;
-    });
+    case "CONTROL_ONLY_FAILURE":
+      return "The website works from your network but fails from the external control server. This suggests the issue is specific to the control server's network or how the site handles external traffic.";
 
-  try {
-    return await Promise.race([call, timeout]);
-  } finally {
-    clearTimeout(timer);
+    case "HTTP_ERROR_EVERYWHERE":
+      return "Both networks successfully reach the server, but the server returns an HTTP error. The failure therefore appears to be occurring at the website or application layer.";
+
+    case "DIFFERENT_STAGES":
+      return "The connection fails at different stages on the two networks. This suggests there may be an issue with the website while your own network may also be introducing a separate connectivity problem.";
+
+    default: {
+      const stage = verdict.localFailure?.stage ?? "network";
+      return `SulfNet detected a difference during the ${stage} stage between your network and the external control server. The evidence points to a network-specific connectivity issue.`;
+    }
   }
 }
