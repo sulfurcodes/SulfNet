@@ -4,6 +4,7 @@ import cors from "cors";
 import { runChecks, type CheckReport } from "./checks/index.js";
 import { diagnose } from "./diagnose.js";
 import { explainWithGemma } from "./gemma.js";
+import { runProbes } from "./checks/proof.js";
 
 const PORT = Number(process.env.SERVER_PORT ?? process.env.PORT ?? 8788);
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN ?? "http://localhost:5173";
@@ -35,13 +36,26 @@ app.post("/diagnose", async (req, res) => {
   const local = req.body?.local as CheckReport | undefined;
 
   if (!isValidUrlInput(url)) {
-    res.status(400).json({ error: 'Send JSON like { "url": "example.com", "local": {...} }' });
+    res
+      .status(400)
+      .json({
+        error: 'Send JSON like { "url": "example.com", "local": {...} }',
+      });
     return;
   }
   if (!local || typeof local !== "object" || typeof local.input !== "string") {
-    res.status(400).json({ error: 'Include the local agent report as "local".' });
+    res
+      .status(400)
+      .json({ error: 'Include the local agent report as "local".' });
     return;
   }
+
+  app.post("/probe", async (req, res) => {
+    const { hostname, port } = req.body ?? {};
+    if (typeof hostname !== "string" || !Number.isInteger(port))
+      return res.status(400).end();
+    res.json(await runProbes(hostname, port, "control"));
+  });
 
   const control = await runChecks(url.trim());
   const verdict = diagnose(local, control);
