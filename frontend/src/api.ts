@@ -61,6 +61,11 @@ async function postJson<T>(
 }
 
 export async function runDiagnostic(url: string): Promise<DiagnoseResponse> {
-  const local = await postJson<CheckReport>(AGENT_URL, "/check", { url }, "agent", 30_000);
-  return postJson<DiagnoseResponse>(CONTROL_URL, "/diagnose", { url, local }, "control", 60_000);
+  return postJson<DiagnoseResponse>(
+    CONTROL_URL,
+    "/diagnose",
+    { url },
+    "control",
+    60_000
+  );
 }
